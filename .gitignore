@@ -1,0 +1,17 @@
+# Ignore node_modules (huge unnecessary files)
+node_modules/
+
+# Ignore environment variables (important for security)
+.env
+
+# Ignore logs and cache files
+*.log
+.cache/
+
+# Ignore build artifacts
+dist/
+build/
+
+# Ignore system-specific files
+.DS_Store
+Thumbs.db
