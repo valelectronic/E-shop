@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "main": "Backend/server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "npm install && node server.js",
     "dev": "nodemon server.js",
      "build": "npm install --omit=dev"
+     
   },
   "keywords": [],
   "author": "victor",
