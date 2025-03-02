@@ -1,6 +1,3 @@
-export const AuthUsers = (req, res) =>{
-    res.json([
-        {id: 1, name: "victor valentine odo 2"},
-        {id:2 , name: 'valentine'}
-    ])
+export const SignUP = async(req,res)=>{
+res.send("sign up successfully")
 }
