@@ -3,6 +3,7 @@ import cors from "cors"
 import dotenv from "dotenv"
 // since export from router.js is default, it can be imported with different name 
 import AuthRoutes from "./Routes/Auth.routes.js"
+import { setupDB } from "./DB.setup.js"
  
 dotenv.config()
  
@@ -19,4 +20,5 @@ const PORT = process.env.PORT || 5000
 
 app.listen(PORT, ()=>{
     console.log(` server is running on port ${PORT}`)
+    setupDB()
 })
