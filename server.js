@@ -10,7 +10,7 @@ dotenv.config()
  
 // middleware
 const app = express()
-app.use(express.json())
+app.use(express.json()) // for parsing application/json
 app.use(cookieParser())
 
 app.use(

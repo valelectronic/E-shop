@@ -10,6 +10,7 @@ const userSchema = new mongoose.Schema({
     minlength: [3, "Name must be at least 3 characters"],
     maxlength: [50, "Name cannot exceed 50 characters"],
     match: [/^[a-zA-Z\s]+$/, "Name can only contain letters and spaces"]
+
     },
 
     email: {
@@ -18,33 +19,34 @@ const userSchema = new mongoose.Schema({
         unique: true,
         lowercase: true,
         trim:true,
-        match: [
-            /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/,
-            "Please enter a valid email address"
-        ],
-        validate: {
-            validator: async function (value) {
-                // Optional: Check for disposable email providers
-                const disposableDomains = ["tempmail.com", "mailinator.com", "10minutemail.com"];
-                const domain = value.split("@")[1];
-                return !disposableDomains.includes(domain);
-            },
-            message: "Disposable email addresses are not allowed",
-        }
+       match: [
+  /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+  "Please enter a valid email address"
+],
     },
     password: {
         type: String,
         required: [true, "Password is required"],
-    minlength: [8, "Password must be at least 8 characters long"],
-    maxlength: [128, "Password cannot exceed 128 characters"],
-    validate: {
-        validator: function (value) {
-            return /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/.test(value);
-        },
-        message: "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"
+        minlength: [8, "Password must be at least 8 characters long"],
+        select: false
     },
-    select: false // Prevents password from being returned in queries
-    },
+
+    state: {
+        type: String,
+        required: [true, "State is required"],
+      },
+  
+      city: {
+        type: String,
+        required: [true, "City is required"],
+      },
+  
+      localGovernment: {
+        type: String,
+        required: [true, "Local Government is required"],
+      },
+   
+    
     cartItems: [
         {
             quantity: {
