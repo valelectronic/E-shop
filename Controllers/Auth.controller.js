@@ -1,6 +1,47 @@
 import User from "../models/user.model.js";
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken";
+import { redis } from "../lib/redis.js";
+
+
+// for generating tokens
+const generateTokens = (newUserId)=>{
+  
+  const accessToken = jwt.sign({newUserId}, process.env.ACCESS_TOKEN_SECRET, 
+    {expiresIn: "20m"}
+  
+  )
+  
+const refreshToken = jwt.sign({newUserId}, process.env.REFRESH_TOKEN_SECRET,
+  {expiresIn: "7d"
+
+  }
+)
+return {accessToken, refreshToken};
+}
+
+// for storing the refresh token in redis
+const storeRefreshToken = async (newUserId, refreshToken)=>{
+  await redis.set(`refreshToken:${newUserId}`, refreshToken, "EX", 7*24*60*60)
+  }
+
+  const setCookies = (res, accessToken, refreshToken)=>{
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true, 
+      sameSite: "strict",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 22*60*1000
+
+
+    })
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true, 
+      sameSite: "strict",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 7*24*60*60*1000
+    })
+
+  }
 
  // for registering a user
 export const SIGNUP = async (req, res) => {
@@ -31,12 +72,16 @@ export const SIGNUP = async (req, res) => {
         city,
         localGovernment,
       });
-  
-      // 🔹 Generate JWT Token
-      const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, {
-        expiresIn: "7d",
-      });
-  
+ 
+      // 🔹 Authenticate use
+      const {accessToken, refreshToken} = generateTokens( newUser._id)
+
+      await storeRefreshToken(newUser._id, refreshToken)
+
+      setCookies(res, {accessToken, refreshToken})
+      
+
+
       res.status(201).json({
         message: "User registered successfully",
         user: {
@@ -45,9 +90,9 @@ export const SIGNUP = async (req, res) => {
           email: newUser.email,
           state: newUser.state,
           city: newUser.city,
+          role: newUser.role,
           localGovernment: newUser.localGovernment,
-        },
-        token, // Return token for authentication
+        }
       });
     } catch (error) {
       res.status(500).json({ message: "Server error", error: error.message });

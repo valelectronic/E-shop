@@ -4,7 +4,7 @@ import dotenv from "dotenv"
 import cookieParser from "cookie-parser"
 // since export from router.js is default, it can be imported with different name 
 import AuthRoutes from "./Routes/Auth.routes.js"
-import { setupDB } from "./DB.setup.js"
+import { setupDB } from "./lib/DB.setup.js"
  
 dotenv.config()
  
