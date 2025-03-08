@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { redis } from "../lib/redis.js";
 
 
+
 // for generating tokens
 const generateTokens = (newUserId)=>{
   
@@ -22,8 +23,16 @@ return {accessToken, refreshToken};
 
 // for storing the refresh token in redis
 const storeRefreshToken = async (newUserId, refreshToken)=>{
-  await redis.set(`refreshToken:${newUserId}`, refreshToken, "EX", 7*24*60*60)
-  }
+  try {
+    await redis.set(`refreshToken:${newUserId}`, refreshToken, "EX", 7*24*60*60)
+  
+  } catch (error) {
+    if(process.env.NODE_ENV === "development"){
+      console.log(error.message)
+    
+  }else{
+    throw new Error("Internal server error")
+  }}}
 
   const setCookies = (res, accessToken, refreshToken)=>{
     res.cookie("accessToken", accessToken, {
