@@ -6,6 +6,7 @@ import { redis } from "../lib/redis.js";
 
 
 // for generating tokens
+
 const generateTokens = (newUserId)=>{
   
   const accessToken = jwt.sign({newUserId}, process.env.ACCESS_TOKEN_SECRET, 
@@ -86,6 +87,7 @@ export const SIGNUP = async (req, res) => {
       const {accessToken, refreshToken} = generateTokens( newUser._id)
 
       await storeRefreshToken(newUser._id, refreshToken)
+      
 
       setCookies(res, {accessToken, refreshToken})
       
