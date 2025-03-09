@@ -1,8 +1,7 @@
 import User from "../models/user.model.js";
-import bcrypt from "bcryptjs"
+
 import jwt from "jsonwebtoken";
 import { redis } from "../lib/redis.js";
-
 
 import dotenv from "dotenv"
 dotenv.config()
@@ -75,14 +74,12 @@ export const SIGNUP = async (req, res) => {
         return res.status(400).json({ message: "User already exists" });
       }
   
-      // 🔹 Hash the password
-      const hashedPassword = await bcrypt.hash(password, 10);
   
       // 🔹 Create a new user 
       const newUser = await User.create({
         name,
         email,
-        password: hashedPassword, // Save hashed password
+        password, // Save hashed password
         state,
         city,
         localGovernment,
@@ -112,6 +109,34 @@ export const SIGNUP = async (req, res) => {
       });
     } catch (error) {
       res.status(500).json({ message: "Server error", error: error.message });
+    }
+  };
+
+
+
+  // for logging in a user
+  export const LOGIN = async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      const user = await User.findOne({ email });
+  
+      if (user && (await user.comparePassword(password))) {
+        const { accessToken, refreshToken } = generateTokens(user._id);
+        await storeRefreshToken(user._id, refreshToken);
+        setCookies(res, accessToken, refreshToken);
+  
+        res.json({
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        });
+      } else {
+        res.status(400).json({ message: "Invalid email or password" });
+      }
+    } catch (error) {
+      console.log("Error in login controller", error.message);
+      res.status(500).json({ message: error.message });
     }
   };
 
@@ -148,8 +173,4 @@ export const LOGOUT = async (req, res) => {
 };
 
 
-// for logging in a user
-export const LOGIN = async (req, res) => { 
-  console.log("login controller")
- }
 
