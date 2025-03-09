@@ -146,3 +146,10 @@ export const LOGOUT = async (req, res) => {
     return res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+
+// for logging in a user
+export const LOGIN = async (req, res) => { 
+  console.log("login controller")
+ }
+
