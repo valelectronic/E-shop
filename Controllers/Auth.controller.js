@@ -4,6 +4,10 @@ import jwt from "jsonwebtoken";
 import { redis } from "../lib/redis.js";
 
 
+import dotenv from "dotenv"
+dotenv.config()
+
+
 
 // for generating tokens
 
@@ -53,6 +57,7 @@ const storeRefreshToken = async (newUserId, refreshToken)=>{
 
   }
 
+
  // for registering a user
 export const SIGNUP = async (req, res) => {
     try {
@@ -89,10 +94,10 @@ export const SIGNUP = async (req, res) => {
       await storeRefreshToken(newUser._id, refreshToken)
       
 
-      setCookies(res, {accessToken, refreshToken})
+      setCookies(res, accessToken, refreshToken)
       
 
-
+// 🔹 Send response after successful registration
       res.status(201).json({
         message: "User registered successfully",
         user: {
@@ -110,15 +115,34 @@ export const SIGNUP = async (req, res) => {
     }
   };
 
+//for logging out user
+export const LOGOUT = async (req, res) => {
+  try {
+    const refreshToken = req.cookies.refreshToken || req.cookies.accessToken?.refreshToken;
 
-// for logging in a user
-export const  LOGIN = async(req,res)=>{
-res.send("log in successfully")
-}
+    if (!refreshToken || refreshToken === "undefined") {
+      return res.status(400).json({ message: "No refresh token found in cookies" });
+    }
+    try {
+      const decoded = jwt.decode(refreshToken);
+      if (!decoded) {
+        return res.status(401).json({ message: "Invalid refresh token" });
+      }
 
+      const verified = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+      
+      await redis.del(`refreshToken:${verified.newUserId}`);
+    } catch (error) {
 
+      return res.status(401).json({ message: "Invalid refresh token" });
+    }
 
-// for logging out a user
-export const LOGOUT = async(req,res)=>{
-res.send("log out successfully")
-}
+    res.clearCookie("accessToken");
+    res.clearCookie("refreshToken");
+    return res.status(200).json({ message: "Logged out successfully" });
+
+  } catch (error) {
+    console.error("Logout Error:", error.message);
+    return res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
