@@ -5,13 +5,24 @@ import cookieParser from "cookie-parser"
 // since export from router.js is default, it can be imported with different name 
 import AuthRoutes from "./Routes/Auth.routes.js"
 import { setupDB } from "./lib/DB.setup.js"
- 
+  import helmet from "helmet"
+  import rateLimit from "express-rate-limit"
+  import mongoSanitize from "express-mongo-sanitize"
 dotenv.config()
  
-// middleware
+// Create express app
 const app = express()
+
+// middleware
+app.use(mongoSanitize()) // Sanitize user input to prevent MongoDB injection
 app.use(express.json()) // for parsing application/json
 app.use(cookieParser())
+const limiter = rateLimit({
+  windowMs: 15*60*1000, // 15 minutes
+  max: 100 // limit each IP to 100 requests per windowMs
+})
+app.use(limiter)
+app.use(helmet()) // Set secure HTTP headers
 
 app.use(
     cors({
