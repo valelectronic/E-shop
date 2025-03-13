@@ -7,7 +7,7 @@ import dotenv from "dotenv"
 dotenv.config()
 
 import passwordRest from "../models/otp.models.js";
-import { GenerateOTP, SendOtpEmail } from "../lib/email.service.js";
+import { GenerateOTP, SendOtpEmail,SendEmail } from "../lib/email.service.js";
 import { body, validationResult } from "express-validator";
 import bcrypt from "bcryptjs";
 
@@ -76,6 +76,13 @@ export const SIGNUP = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
 
     }
+// ✅ Strong password validation
+const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+if (!passwordRegex.test(password)) {
+  return res.status(400).json({
+    message: "Password must be at least 8 characters long and include one uppercase letter, one number, and one special character (@$!%*?&).",
+  });
+}
 
     // 🔹 Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -239,14 +246,19 @@ export const REQUEST_OTP = async (req, res) => {
   }
 }
 
-
-
 // for resetting password
-
 export const RESET_PASSWORD = async (req, res) => {
-  const { email, otp,oldPassword, newPassword } = req.body;
+  const { email, otp, oldPassword, newPassword } = req.body;
+  
   try {
     console.log("🔄 RESET PASSWORD STARTED");
+
+    // 🔍 Find the user
+    const user = await User.findOne({ email });
+    if (!user) {
+      console.log("❌ User Not Found");
+      return res.status(404).json({ message: "User not found" });
+    }
 
     // 🔍 Find OTP record
     const otpRecord = await passwordRest.findOne({ email, otp });
@@ -262,53 +274,54 @@ export const RESET_PASSWORD = async (req, res) => {
       return res.status(400).json({ message: "OTP expired" });
     }
 
-    // 🔍 Find the user
-    const user = await User.findOne({ email });
-    if (!user) {
-      console.log("❌ User Not Found");
-      return res.status(404).json({ message: "User not found" });
-    }
-
     // 🔄 Compare old password
-    const isOldPasswordMatch = await bcrypt.compare(oldPassword.trim(), user.password);
-if(!isOldPasswordMatch){
-  console.log("❌ Old Password Does Not Match");
-  return res.status(400).json({ message: "Old password does not match" });
-}
-// prevent Reuse of old password
-if (user.previousPasswords) {
-  for (let oldHashedPassword of user.previousPasswords) {
-    if (await bcrypt.compare(newPassword, oldHashedPassword)) {
-      return res.status(400).json({ message: 'New password must be different from the last 3 passwords' });
+    const isOldPasswordMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isOldPasswordMatch) {
+      console.log("❌ Old Password Does Not Match");
+      return res.status(400).json({ message: "Old password does not match" });
     }
-  }
-}
+console.log("passed 1")
+    // 🛑 Prevent Reuse of Last 3 Passwords
+    if (user.previousPasswords) {
+      for (let oldHashedPassword of user.previousPasswords) {
+        if (await bcrypt.compare(newPassword, oldHashedPassword)) {
+          return res.status(400).json({ message: "New password must be different from the last 3 passwords" });
+        }
+      }
+    }
+    console.log("passed 2")
 
     // 🚀 Hash the new password
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(newPassword.trim(), salt);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
 
     console.log("🔑 Generated Hashed Password:", hashedPassword);
 
-    // Store New Password & Maintain Last 3 Passwords
-user.previousPasswords = [...(user.previousPasswords || []).slice(-2), user.password];
-user.password = hashedPassword;
-user.passwordChangedAt = new Date();
+    // 🔄 Store New Password & Maintain Last 3 Passwords
+    user.previousPasswords = [...(user.previousPasswords || []).slice(-2), user.password]; // Keep only last 2 + current
+    user.password = hashedPassword;
+    user.passwordChangedAt = new Date();
+
     console.log("✅ User Found:", user.email);
     console.log("📝 Entered Password Before Hashing:", newPassword);
 
-
     // 🔄 Update user password
-    await User.updateOne({ email }, { $set: { password: hashedPassword } });
-
-
-    // 🔍 Check what is saved in DB
-    const updatedUser = await User.findOne({ email });
-    console.log("📁 Stored Hashed Password in DB:", updatedUser.password);
+    await User.updateOne({ email }, { $set: { password: hashedPassword, previousPasswords: user.previousPasswords, passwordChangedAt: user.passwordChangedAt } });
 
     // 🗑️ Delete OTP record
     await passwordRest.deleteOne({ email });
     console.log("✅ OTP Record Deleted");
+
+    // 📧 Send Notification Email
+    try {
+      await SendEmail(
+        user.email,
+        "Password Changed Successfully",
+        "Your password has been changed successfully. If you did not request this, please contact support immediately."
+      );
+    } catch (emailError) {
+      console.warn("⚠️ Password reset successful, but email notification failed.");
+    }
 
     res.status(200).json({ message: "Password reset successfully, please login" });
 
@@ -317,7 +330,6 @@ user.passwordChangedAt = new Date();
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
 
 // for getting user profile
 export const PROFILE = async (req, res) => {
