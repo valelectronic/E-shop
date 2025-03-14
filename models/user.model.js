@@ -88,8 +88,6 @@ const userSchema = new mongoose.Schema({
     
     userSchema.methods.comparePassword = async function (candidatePassword) {
         const trimmedPassword = candidatePassword.trim(); // Trim the candidate password
-        console.log('Candidate Password:', trimmedPassword); // Debug: Log the trimmed password
-        console.log('Stored Hashed Password:', this.password); // Debug: Log the stored hashed password
         return await bcrypt.compare(trimmedPassword, this.password);
         
     };

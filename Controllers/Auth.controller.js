@@ -1,18 +1,13 @@
-import User from "../models/user.model.js";
-
+import User from "../models/user.model.js"
 import jwt from "jsonwebtoken";
 import { redis } from "../lib/redis.js";
-
 import dotenv from "dotenv"
 dotenv.config()
-
+import EmailVerification from "../models/emailVerification.model.js";
 import passwordRest from "../models/otp.models.js";
-import { GenerateOTP, SendOtpEmail,SendEmail } from "../lib/email.service.js";
+import { GenerateOTP, SendOtpEmail,SendEmail, VerifyEmailWithOtp } from "../lib/email.service.js";
 import { body, validationResult } from "express-validator";
 import bcrypt from "bcryptjs";
-
-
-
 
 
 // for generating tokens
@@ -65,14 +60,41 @@ const setCookies = (res, accessToken, refreshToken) => {
 
 }
 
+//send  OTP to user before registration 
+export const VERIFYEMAIL = async (req, res) => {
+  try {
+  
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+      // 🔹 Check if user already exists
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return res.status(400).json({ message: "User already exists" });
+      }
+
+    // 🔹 Send OTP
+    const otpResponse = await VerifyEmailWithOtp(email);
+    if (!otpResponse.success) {
+      return res.status(500).json({ message: otpResponse.message });
+    }
+
+    res.status(200).json({ message: "OTP sent successfully. Please verify to continue." });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
 
 // for registering a user
 export const SIGNUP = async (req, res) => {
   try {
-    const { name, email, password, state, city, localGovernment } = req.body;
+    const { name,token, email, password, state, city, localGovernment } = req.body;
 
     // 🔹 Validate required fields
-    if (!name || !email || !password || !state || !city || !localGovernment) {
+    if (!name ||!token|| !email || !password || !state || !city || !localGovernment) {
       return res.status(400).json({ message: "All fields are required" });
 
     }
@@ -83,6 +105,12 @@ if (!passwordRegex.test(password)) {
     message: "Password must be at least 8 characters long and include one uppercase letter, one number, and one special character (@$!%*?&).",
   });
 }
+
+ // 🔹 Check OTP validity
+ const otpRecord = await EmailVerification.findOne({ email, token });
+ if (!otpRecord) {
+   return res.status(400).json({ message: "Invalid or expired OTP" });
+ }
 
     // 🔹 Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -100,6 +128,9 @@ if (!passwordRegex.test(password)) {
       city,
       localGovernment,
     });
+
+    // 🔹 Delete OTP record after successful verification
+    await EmailVerification.deleteOne({ email });
 
     // 🔹 Authenticate use
     const { accessToken, refreshToken } = generateTokens(newUser._id)
@@ -253,6 +284,19 @@ export const RESET_PASSWORD = async (req, res) => {
   try {
     console.log("🔄 RESET PASSWORD STARTED");
 
+    // 🔍 Validate required fields
+    if (!email || !otp || !oldPassword || !newPassword) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    // ✅ Strong password validation
+    const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({
+        message:
+          "Password must be at least 8 characters long and include one uppercase letter and one number.",
+      });
+    }
     // 🔍 Find the user
     const user = await User.findOne({ email });
     if (!user) {
@@ -268,7 +312,7 @@ export const RESET_PASSWORD = async (req, res) => {
     }
 
     // ⏳ Check if OTP expired
-    const otpExpiryTime = otpRecord.createdAt.getTime() + parseInt(process.env.OTP_EXPIRY || 300000);
+    const otpExpiryTime = otpRecord.createdAt.getTime() + parseInt(process.env.OTP_EXPIRY || 500000);
     if (Date.now() > otpExpiryTime) {
       console.log("❌ OTP Expired");
       return res.status(400).json({ message: "OTP expired" });
