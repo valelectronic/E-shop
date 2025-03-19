@@ -106,10 +106,10 @@ if (!passwordRegex.test(password)) {
   });
 }
 
- // 🔹 Check OTP validity
+ // 🔹 Check token  validity
  const otpRecord = await EmailVerification.findOne({ email, token });
  if (!otpRecord) {
-   return res.status(400).json({ message: "Invalid or expired OTP" });
+   return res.status(400).json({ message: "get a verificaion token from your email" });
  }
 
     // 🔹 Check if user already exists
@@ -240,8 +240,7 @@ export const LOGOUT = async (req, res) => {
 };
 
 
-
-// for requesting otp
+// for requesting otp for password reset 
 export const REQUEST_OTP = async (req, res) => {
 
   try {
@@ -264,7 +263,6 @@ export const REQUEST_OTP = async (req, res) => {
     const newOtp = await passwordRest.create({ email, otp });
     await newOtp.save()
 
-
     // 🔹 Send OTP to user's email
     await SendOtpEmail(email, otp);
     res.json({ message: "OTP sent successfully" });
@@ -279,13 +277,13 @@ export const REQUEST_OTP = async (req, res) => {
 
 // for resetting password
 export const RESET_PASSWORD = async (req, res) => {
-  const { email, otp, oldPassword, newPassword } = req.body;
+  const { email, otp, newPassword } = req.body;
   
   try {
     console.log("🔄 RESET PASSWORD STARTED");
 
     // 🔍 Validate required fields
-    if (!email || !otp || !oldPassword || !newPassword) {
+    if (!email || !otp || !newPassword) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
@@ -318,22 +316,7 @@ export const RESET_PASSWORD = async (req, res) => {
       return res.status(400).json({ message: "OTP expired" });
     }
 
-    // 🔄 Compare old password
-    const isOldPasswordMatch = await bcrypt.compare(oldPassword, user.password);
-    if (!isOldPasswordMatch) {
-      console.log("❌ Old Password Does Not Match");
-      return res.status(400).json({ message: "Old password does not match" });
-    }
-console.log("passed 1")
-    // 🛑 Prevent Reuse of Last 3 Passwords
-    if (user.previousPasswords) {
-      for (let oldHashedPassword of user.previousPasswords) {
-        if (await bcrypt.compare(newPassword, oldHashedPassword)) {
-          return res.status(400).json({ message: "New password must be different from the last 3 passwords" });
-        }
-      }
-    }
-    console.log("passed 2")
+    
 
     // 🚀 Hash the new password
     const salt = await bcrypt.genSalt(10);
